@@ -6,7 +6,7 @@ output: github_document
 ---
 
 ```{r}
-map = array(dim = 44)
+map = array(dim = 42)
 map[1] = 1 #blue space
 map[2] = 1
 map[3] = 2 #red space
@@ -41,16 +41,15 @@ map[31] = 6
 map[32] = 1
 map[33] = 4
 map[34] = 9 #Bowser
-map[35] = 10 #Statue
-map[36] = 1
-map[37] = 2
-map[38] = 1
-map[39] = 10
+map[35] = 1
+map[36] = 2
+map[37] = 1
+map[38] = 10 #Statue
+map[39] = 1
 map[40] = 1
-map[41] = 1
-map[42] = 11 #Throwback
-map[43] = 1
-map[44] = 0
+map[41] = 11 #Throwback
+map[42] = 1
+map[43] = 0
 ```
 
 ```{r}
@@ -89,7 +88,7 @@ players$item1 = 0
 players$item2 = 0
 players$item3 = 0
 players$status = 0
-players$place1 = 44
+players$place1 = 43
 players$place2 = 0
 star_price = 10
 players$coins = 10
@@ -103,12 +102,12 @@ for (i in 1:scoreboard$turns[k]) {
   for (j in 1:4) {
     roll = sample(1:10,1)
     if (players$status[j] == 1 | players$status[j] == 2) {
-      players$place2[j] = (players$place1[j] + 2 * roll) %% 44 + 1
+      players$place2[j] = (players$place1[j] + 2 * roll) %% 43 + 1
     } else {
-      players$place2[j] = (players$place1[j] + roll) %% 44 + 1
+      players$place2[j] = (players$place1[j] + roll) %% 43 + 1
     }
     
-    if (players$place1[j] + roll > 43 & players$coins[j] >= star_price) {
+    if (players$place1[j] + roll > 42 & players$coins[j] >= star_price) {
       players$stars[j] = players$stars[j] + 1
       players$coins[j] = players$coins[j] - star_price
       star_price = star_price + 10          #Star purchase
@@ -201,11 +200,6 @@ for (j in 1:4) {
 }
 }
 
-
-
-
-
-
 ```
 
 
@@ -258,7 +252,7 @@ model2 <- ulam( alist(
   logit(p) <- a[turns] + bs*skill,
   a[turns] ~ dnorm(0, 1.5),
   bs ~ dnorm(0, 1.5)
-), data = d2, chains = 1, log_lik=TRUE)
+), data = d2, chains = 4, log_lik=TRUE, cores = parallel::detectCores())
 
 ```
 
