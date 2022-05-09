@@ -1,0 +1,513 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+```{r}
+library(rethinking)
+library(LaplacesDemon)
+library(gtools)
+```
+
+```{r}
+
+m2 = 1000
+
+A3 = matrix(0,nrow = m2, ncol = 4)
+B3 = A3
+C3 = A3
+D = A3
+D2 = A3
+E = A3
+F = sample(c(1,4), size = m2, replace = TRUE)
+N = sample(c(15,50), m2, replace = TRUE)
+
+
+for (m in 1:m2) {
+
+n = N[m]
+A = matrix(0,nrow = n, ncol = 4)
+B = A
+C = A
+
+p = runif(4)
+
+for (i in 1:4) {
+  A[,i] = sample(1:10, n, replace = TRUE)
+  B[,i] = rcat(n, c(4,16,22))
+  C[,i] = 10 * rbinom(n, 1, p[i])
+}
+
+B = 3 * (B-2)
+
+A2 = A
+B2 = B + C
+
+for (i in 2:n) {
+  A2[i,] = A2[i-1,] + A[i,]
+  B2[i,] = B2[i-1,] + B[i,] + C[i,]
+}
+
+A3[m,] = A2[n,]
+E[m,] = B2[n,]
+
+for (i in 1:n) {
+  for (k in 1:4) {
+    t1 = (1+sum(D[m])%%4)*10
+    if (A2[i,k] > (D[m,k]+1) * 42 & B2[i,k] > t1) {
+      D[m,k] = D[m,k] + 1
+      B2[,k] - t1
+    }
+  }
+}
+
+for (i in 1:4) {
+  B3[m,i] = sum(B[,i])
+  C3[m,i] = sum(C[,i])
+  t = 0
+  for (j in 1:4) if (D[m,i] > D[m,j] | (D[m,i] == D[m,j] & B2[n,i] >= B2[n,j])) t = t + 1
+  if (t == 4) D2[m,i] = 1
+}
+
+}
+
+dat2 = matrix(nrow = m2, ncol = 6)
+
+dat3 = data.frame(player = F, turns = as.factor(N))
+
+for (i in 1:m2) {
+  dat2[i,] = c(F[i], A3[i,F[i]], E[i,F[i]], D[i,F[i]], N[i], D2[i,F[i]])
+  if(F[i]==4) dat2[i,1] = 2
+  
+  dat3$moves[i] = A3[i,dat3$player[i]]
+  dat3$coins[i] = E[i,dat3$player[i]]
+  dat3$stars[i] = D[i,dat3$player[i]]
+  dat3$win[i] = D2[i,dat3$player[i]]
+}
+
+dat3$player = as.factor(dat3$player)
+
+```
+
+***1.***
+
+$(stars | turns = 15) \sim N(\mu,\sigma)$
+$\mu = bc*coins + bm*moves$
+$bc, bm \sim logN(0,1)$
+$\sigma \sim exp(1)$
+
+```{r, include = FALSE}
+
+dat = dat3[dat3$turns==15,]
+
+param = list(
+  M = standardize(dat$moves),
+  C = standardize(dat$coins),
+  S = standardize(dat$stars)
+)
+
+model_1.1.1 = ulam(alist(
+  S ~ dnorm(mu, sigma),
+  mu <- bc*C + bm*M,
+  bc ~ dlnorm(0,1),
+  bm ~ dlnorm(0,1),
+  sigma ~ dexp(1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+               
+```
+
+```{r}
+precis(model_1.1.1)
+plot(precis(model_1.1.1))
+```
+
+$(stars | turns = 15) \sim N(\mu,\sigma)$
+$\mu = a*I[player=1] + bc*coins + bm*moves$
+$bc, bm \sim logN(0,1)$
+$a \sim N(0,1)$
+$\sigma \sim exp(1)$
+
+$(stars | turns = 15) \sim N(\mu,\sigma)$
+$\mu = bc[player]*coins + bm[player]*moves$
+$bc[player], bm[player] \sim logN(0,1)$
+$\sigma \sim exp(1)$
+
+$(stars | turns = 15) \sim N(\mu,\sigma)$
+$\mu = a*I[player=1] + bc[player]*coins + bm[player]*moves$
+$bc[player], bm[player] \sim logN(0,1)$
+$a \sim N(0,1)$
+$\sigma \sim exp(1)$
+
+```{r, include = FALSE}
+
+param = list(
+  P = dat$player,
+  M = standardize(dat$moves),
+  C = standardize(dat$coins),
+  S = standardize(dat$stars)
+)
+
+model_1.1.2 = ulam(alist(
+  S ~ dnorm(mu, sigma),
+  mu <- a*(P-1) + bc*C + bm*M,
+  bc ~ dlnorm(0,1),
+  bm ~ dlnorm(0,1),
+  a ~ dnorm(0,1),
+  sigma ~ dexp(1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+            
+
+model_1.1.3 = ulam(alist(
+  S ~ dnorm(mu, sigma),
+  mu <- a*(P-1) + bc[P]*C + bm[P]*M,
+  bc[P] ~ dlnorm(0,1),
+  bm[P] ~ dlnorm(0,1),
+  a ~ dnorm(0,1),
+  sigma ~ dexp(1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+               
+
+
+model_1.1.4 = ulam(alist(
+  S ~ dnorm(mu, sigma),
+  mu <- bc[P]*C + bm[P]*M,
+  bc[P] ~ dlnorm(0,1),
+  bm[P] ~ dlnorm(0,1),
+  sigma ~ dexp(1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+               
+```
+
+```{r}
+compare(model_1.1.1, model_1.1.2, model_1.1.3, model_1.1.4)
+```
+
+```{r}
+precis(model_1.1.3, depth = 2)
+plot(precis(model_1.1.3, depth = 2))
+```
+
+```{r}
+precis(model_1.1.2, depth = 2)
+plot(precis(model_1.1.2, depth = 2))
+```
+
+```{r, include = FALSE}
+model_1.1.2.2 = ulam(alist(
+  S ~ dnorm(mu, sigma),
+  mu <- a*(P-1) + bc*C + bm*M,
+  bc ~ dlnorm(0,1),
+  bm ~ dlnorm(0,1),
+  a ~ dlnorm(0,1),
+  sigma ~ dexp(1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+            
+
+model_1.1.3.2 = ulam(alist(
+  S ~ dnorm(mu, sigma),
+  mu <- a*(P-1) + bc[P]*C + bm[P]*M,
+  bc[P] ~ dlnorm(0,1),
+  bm[P] ~ dlnorm(0,1),
+  a ~ dlnorm(0,1),
+  sigma ~ dexp(1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+```
+
+$a \sim N(0,1)$ -> $a\sim LogN(0,1)$
+
+```{r}
+compare(model_1.1.2, model_1.1.3, model_1.1.2.2, model_1.1.3.2)
+```
+
+$bc -> bc[player]$, $bm[player] -> bm$
+
+```{r, include = FALSE}
+
+param = list(
+  P = dat$player,
+  M = standardize(dat$moves),
+  C = standardize(dat$coins),
+  S = standardize(dat$stars)
+)
+
+model_1.1.1.3 = ulam(alist(
+  S ~ dnorm(mu, sigma),
+  mu <- bc[P]*C + bm*M,
+  bc[P] ~ dlnorm(0,1),
+  bm ~ dlnorm(0,1),
+  sigma ~ dexp(1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+
+model_1.1.2.3 = ulam(alist(
+  S ~ dnorm(mu, sigma),
+  mu <- a*(P-1) + bc[P]*C + bm*M,
+  bc[P] ~ dlnorm(0,1),
+  bm ~ dlnorm(0,1),
+  a ~ dnorm(0,1),
+  sigma ~ dexp(1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+               
+```
+
+```{r}
+compare(model_1.1.1, model_1.1.2, model_1.1.3, model_1.1.4,model_1.1.1.3, model_1.1.2.3)
+```
+
+```{r}
+precis(model_1.1.1.3, depth = 2)
+plot(precis(model_1.1.1.3, depth = 2))
+```
+
+**1.2: 50 turn case**
+
+```{r, include = FALSE}
+
+dat = dat3[dat3$turns==50,]
+
+param = list(
+  M = standardize(dat$moves),
+  C = standardize(dat$coins),
+  S = standardize(dat$stars)
+)
+
+model_1.2.1 = ulam(alist(
+  S ~ dnorm(mu, sigma),
+  mu <- bc*C + bm*M,
+  bc ~ dlnorm(0,1),
+  bm ~ dlnorm(0,1),
+  sigma ~ dexp(1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+
+param = list(
+  P = dat$player,
+  M = standardize(dat$moves),
+  C = standardize(dat$coins),
+  S = standardize(dat$stars)
+)
+
+model_1.2.2 = ulam(alist(
+  S ~ dnorm(mu, sigma),
+  mu <- a*(P-1) + bc*C + bm*M,
+  bc ~ dlnorm(0,1),
+  bm ~ dlnorm(0,1),
+  a ~ dnorm(0,1),
+  sigma ~ dexp(1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+            
+
+model_1.2.3 = ulam(alist(
+  S ~ dnorm(mu, sigma),
+  mu <- a*(P-1) + bc[P]*C + bm[P]*M,
+  bc[P] ~ dlnorm(0,1),
+  bm[P] ~ dlnorm(0,1),
+  a ~ dnorm(0,1),
+  sigma ~ dexp(1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+
+model_1.2.4 = ulam(alist(
+  S ~ dnorm(mu, sigma),
+  mu <- bc[P]*C + bm[P]*M,
+  bc[P] ~ dlnorm(0,1),
+  bm[P] ~ dlnorm(0,1),
+  sigma ~ dexp(1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+
+model_1.2.2.2 = ulam(alist(
+  S ~ dnorm(mu, sigma),
+  mu <- a*(P-1) + bc*C + bm*M,
+  bc ~ dlnorm(0,1),
+  bm ~ dlnorm(0,1),
+  a ~ dlnorm(0,1),
+  sigma ~ dexp(1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+            
+
+model_1.2.3.2 = ulam(alist(
+  S ~ dnorm(mu, sigma),
+  mu <- a*(P-1) + bc[P]*C + bm[P]*M,
+  bc[P] ~ dlnorm(0,1),
+  bm[P] ~ dlnorm(0,1),
+  a ~ dlnorm(0,1),
+  sigma ~ dexp(1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+
+model_1.2.1.3 = ulam(alist(
+  S ~ dnorm(mu, sigma),
+  mu <- bc[P]*C + bm*M,
+  bc[P] ~ dlnorm(0,1),
+  bm ~ dlnorm(0,1),
+  sigma ~ dexp(1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+
+model_1.2.2.3 = ulam(alist(
+  S ~ dnorm(mu, sigma),
+  mu <- a*(P-1) + bc[P]*C + bm*M,
+  bc[P] ~ dlnorm(0,1),
+  bm ~ dlnorm(0,1),
+  a ~ dnorm(0,1),
+  sigma ~ dexp(1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+
+```
+
+```{r}
+compare(model_1.2.1, model_1.2.2, model_1.2.3, model_1.2.4,model_1.2.1.3, model_1.2.2.3, model_1.2.2.2, model_1.2.3.2)
+```
+
+```{r}
+precis(model_1.2.1)
+plot(precis(model_1.2.1))
+```
+
+
+
+
+```{r, include=FALSE, eval = FALSE}
+
+dat = dat2[N==15,]
+
+param = list(
+  movement = standardize(dat[,2]),
+  coins = standardize(dat[,3]),
+  win = dat[,6]
+)
+
+model3.2.1 = ulam(alist(
+  win ~ dbinom(1, p),
+  logit(p) <- A + bc * coins + bm * movement,
+  A ~ dnorm(0,1),
+  bc ~ dlnorm(0,1),
+  bm ~ dlnorm(0,1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+
+
+param = list(
+  player = dat[,1],
+  movement = standardize(dat[,2]),
+  coins = standardize(dat[,3]),
+  win = dat[,6]
+)
+
+model3.2.2 = ulam(alist(
+  win ~ dbinom(1, p),
+  logit(p) <- A - bA * (player-1) + bc*coins + bm*movement,
+  A ~ dnorm(0,1),
+  bA ~ dlnorm(0,1),
+  bc ~ dlnorm(0,1),
+  bm ~ dlnorm(0,1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+
+model3.2.3 = ulam(alist(
+  win ~ dbinom(1, p),
+  logit(p) <- A - bA * (player-1) + bc[player]*coins + bm[player]*movement,
+  A ~ dnorm(0,1),
+  bA ~ dlnorm(0,1),
+  bc[player] ~ dlnorm(0,1),
+  bm[player] ~ dlnorm(0,1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+
+model3.2.4 = ulam(alist(
+  win ~ dbinom(1, p),
+  logit(p) <- A + bc[player]*coins + bm[player]*movement,
+  A ~ dnorm(0,1),
+  bc[player] ~ dlnorm(0,1),
+  bm[player] ~ dlnorm(0,1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+
+```
+
+```{r, include=FALSE, eval = FALSE}
+
+compare(model3.2.1, model3.2.2, model3.2.3, model3.2.4)
+
+precis(model3.2.1, depth = 2)
+precis(model3.2.2, depth = 2)
+precis(model3.2.3, depth = 2)
+precis(model3.2.4, depth = 2)
+
+```
+
+```{r, include=FALSE, eval = FALSE}
+
+dat = dat2[N==50,]
+
+param = list(
+  movement = standardize(dat[,2]),
+  coins = standardize(dat[,3]),
+  win = dat[,6]
+)
+
+model3.2.1.2 = ulam(alist(
+  win ~ dbinom(1, p),
+  logit(p) <- A + bc * coins + bm * movement,
+  A ~ dnorm(0,1),
+  bc ~ dlnorm(0,1),
+  bm ~ dlnorm(0,1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+
+
+param = list(
+  player = dat[,1],
+  movement = standardize(dat[,2]),
+  coins = standardize(dat[,3]),
+  win = dat[,6]
+)
+
+model3.2.2.2 = ulam(alist(
+  win ~ dbinom(1, p),
+  logit(p) <- A - bA * (player-1) + bc*coins + bm*movement,
+  A ~ dnorm(0,1),
+  bA ~ dlnorm(0,1),
+  bc ~ dlnorm(0,1),
+  bm ~ dlnorm(0,1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+
+model3.2.3.2 = ulam(alist(
+  win ~ dbinom(1, p),
+  logit(p) <- A - bA * (player-1) + bc[player]*coins + bm[player]*movement,
+  A ~ dnorm(0,1),
+  bA ~ dlnorm(0,1),
+  bc[player] ~ dlnorm(0,1),
+  bm[player] ~ dlnorm(0,1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+
+model3.2.4.2 = ulam(alist(
+  win ~ dbinom(1, p),
+  logit(p) <- A + bc[player]*coins + bm[player]*movement,
+  A ~ dnorm(0,1),
+  bc[player] ~ dlnorm(0,1),
+  bm[player] ~ dlnorm(0,1)
+), data = param, chains = 4, cores = detectCores(), log_lik = TRUE)
+
+```
+
+```{r, include=FALSE, eval = FALSE}
+
+compare(model3.2.1.2, model3.2.2.2, model3.2.3.2, model3.2.4.2)
+
+precis(model3.2.1.2, depth = 2)
+precis(model3.2.2.2, depth = 2)
+precis(model3.2.3.2, depth = 2)
+precis(model3.2.4.2, depth = 2)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
