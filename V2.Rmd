@@ -186,8 +186,8 @@ compare(model_1.1.1, model_1.1.2, model_1.1.3, model_1.1.4)
 ```
 
 ```{r}
-precis(model_1.1.3, depth = 2)
-plot(precis(model_1.1.3, depth = 2))
+precis(model_1.1.1, )
+plot(precis(model_1.1.1))
 ```
 
 ```{r}
