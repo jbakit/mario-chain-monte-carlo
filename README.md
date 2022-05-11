@@ -1,1 +1,3 @@
-# mario-chain-monte-carlo
+# mario-chain-monte-carlo 
+
+WORK IN PROGRESS!
